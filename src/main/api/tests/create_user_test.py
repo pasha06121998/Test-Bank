@@ -5,17 +5,22 @@ from src.main.api.generators.model_generator import RandomModelGenerator
 from src.main.api.models.create_user_request import CreateUserRequest
 from src.main.api.db.crud.user_crud import UserCrudDb as User
 
+
 @pytest.mark.api
 class TestCreateUser:
     def test_create_user_valid(self, api_manager: ApiManager, db_session: Session):
+        # 1. Создаем пользователя
         create_user_request = RandomModelGenerator.generate(CreateUserRequest)
         response = api_manager.admin_steps.create_user(create_user_request)
 
-        assert create_user_request.username == response.username
-        assert create_user_request.role == response.role
+        # 2. Проверяем пользователя и роль
+        assert create_user_request.username == response.username, 'Имя пользователя в ответе не совпадает'
+        assert create_user_request.role == response.role, "У пользователя другая роль"
 
+        # 3. Проверяем пользователя в БД
         user_from_db = User.get_user_by_username(db_session, create_user_request.username)
-        assert user_from_db.username == create_user_request.username, 'Созданного пользователя нет в БД'
+        assert user_from_db is not None, 'Созданного пользователя нет в БД'
+        assert user_from_db.username == create_user_request.username, 'Имя пользователя в БД не совпадает'
 
     @pytest.mark.parametrize(
         "username, password",
@@ -32,8 +37,10 @@ class TestCreateUser:
         ]
     )
     def test_create_user_invalid(self, db_session: Session, username: str, password: str, api_manager: ApiManager):
+        # 1. Создаем пользователя
         create_user_request = CreateUserRequest(username=username, password=password, role="ROLE_USER")
         api_manager.admin_steps.create_invalid_user(create_user_request)
 
+        # 2. Проверяем пользователя в БД
         user_from_db = User.get_user_by_username(db_session, create_user_request.username)
         assert user_from_db is None, 'Пользователь создан, ошибка'
